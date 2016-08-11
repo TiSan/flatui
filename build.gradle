@@ -1,0 +1,95 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
+repositories {
+    mavenCentral()
+}
+ext.configFile = file "build.properties"
+configFile.withReader {
+    def prop = new Properties()
+    prop.load(it)
+    project.ext.config = new ConfigSlurper().parse prop
+}
+version = config.main_version + "-" + config.state_version + "-" + config.build_number
+group= config.package_group
+archivesBaseName = config.project_name
+
+dependencies {
+	
+}
+
+jar {
+	dependsOn "incrementBuildNumber"
+	//from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+	exclude 'de/tisan/flatui/atest/**'
+}
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allSource
+    classifier = 'sources'
+}
+task testJar(type: Jar) {
+	classifier = 'test'
+    from sourceSets.main.output
+    manifest {
+		attributes 'Main-Class': config.main_class_test
+	}
+}
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from 'build/docs/javadoc'
+}
+tasks.build.dependsOn sourceJar, testJar
+task("incrementBuildNumber") {
+	doFirst {
+		config.build_number = (config.build_number.toString().toInteger()) + 1
+		configFile.withWriter {
+			config.toProperties().store(it, "")
+		}
+	}
+}
+signing {
+    sign configurations.archives
+}
+artifacts {
+    archives sourceJar
+    archives testJar
+    archives javadocJar
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+        	beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+        
+            repository(url: "http://tidev2.hostcode.eu:8081/repository/tidev/"){
+           		authentication(userName: "daniel", password: "teop4wyq")
+        	}
+
+        	pom.project {
+        		 name 'FlatUI'
+        		 description 'A simple flat UI for Swing written in Java.'
+        		 url 'http://tisan.de'
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution 'repo'
+                    }
+                }
+                developers {
+                    developer {
+                        name 'TiSan'
+                        email 'webmaster@dropbyte.de'
+                        organization 'TiSan.de'
+                        organizationUrl 'http://tisan.de'
+                    }
+                }
+                scm { 
+                    url 'git@github.com:TiSan/flatui.git'
+                }
+            }
+            
+        }
+    }
+}
