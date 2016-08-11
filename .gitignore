@@ -1,4 +1,5 @@
 build.properties
+gradle.properties
 build/*
 !build/libs
 bin/
